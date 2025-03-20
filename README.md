@@ -1,5 +1,9 @@
 # ChopChopRSS
 
+<p align="center">
+  <img src="chopchop.png" alt="ChopChopRSS Logo" width="200">
+</p>
+
 A fast and simple CLI tool for generating and managing RSS feeds.
 
 ## Features
