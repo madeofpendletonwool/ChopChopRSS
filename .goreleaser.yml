@@ -1,0 +1,52 @@
+before:
+  hooks:
+    - go mod tidy
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+archives:
+  - format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    replacements:
+      darwin: mac
+    format_overrides:
+      - goos: windows
+        format: zip
+checksum:
+  name_template: "checksums.txt"
+snapshot:
+  name_template: "{{ .Tag }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - Merge pull request
+      - Merge branch
+
+brews:
+  - name: chopchoprss
+    tap:
+      owner: "{{.Env.GITHUB_REPOSITORY_OWNER}}"
+      name: homebrew-chopchoprss
+    homepage: "https://github.com/{{.Env.GITHUB_REPOSITORY_OWNER}}/chopchoprss"
+    description: "A fast and simple CLI tool for generating and managing RSS feeds"
+    license: "MIT"
+    test: |
+      system "#{bin}/chopchoprss --version"
+    install: |
+      bin.install "chopchoprss"
+      bash_completion.install "completions/chopchoprss.bash" => "chopchoprss"
+      zsh_completion.install "completions/chopchoprss.zsh" => "_chopchoprss"
+      fish_completion.install "completions/chopchoprss.fish"

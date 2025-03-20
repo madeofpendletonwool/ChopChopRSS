@@ -115,11 +115,100 @@ func main() {
 
 	serveCmd.Flags().StringP("port", "p", defaultPort, "Server port")
 
+	// List entries command
+	var listEntriesCmd = &cobra.Command{
+		Use:   "list-entries",
+		Short: "List all entries in a feed",
+		Run:   listEntries,
+	}
+
+	listEntriesCmd.Flags().StringP("feed", "f", "", "Feed name (required)")
+	listEntriesCmd.MarkFlagRequired("feed")
+
+	// Delete feed command
+	var deleteFeedCmd = &cobra.Command{
+		Use:   "delete-feed",
+		Short: "Delete a feed",
+		Run:   deleteFeed,
+	}
+
+	deleteFeedCmd.Flags().StringP("name", "n", "", "Feed name (required)")
+	deleteFeedCmd.MarkFlagRequired("name")
+
+	// Delete entry command
+	var deleteEntryCmd = &cobra.Command{
+		Use:   "delete-entry",
+		Short: "Delete an entry from a feed",
+		Run:   deleteEntry,
+	}
+
+	deleteEntryCmd.Flags().StringP("feed", "f", "", "Feed name (required)")
+	deleteEntryCmd.Flags().IntP("index", "i", -1, "Entry index (required)")
+	deleteEntryCmd.MarkFlagRequired("feed")
+	deleteEntryCmd.MarkFlagRequired("index")
+
+	// Add completion command
+	var completionCmd = &cobra.Command{
+		Use:   "completion [bash|zsh|fish|powershell]",
+		Short: "Generate completion script",
+		Long: `To load completions:
+
+Bash:
+  $ source <(chopchoprss completion bash)
+
+  # To load completions for each session, execute once:
+  # Linux:
+  $ chopchoprss completion bash > /etc/bash_completion.d/chopchoprss
+  # macOS:
+  $ chopchoprss completion bash > $(brew --prefix)/etc/bash_completion.d/chopchoprss
+
+Zsh:
+  # If shell completion is not already enabled in your environment,
+  # you will need to enable it.  You can execute the following once:
+
+  $ echo "autoload -U compinit; compinit" >> ~/.zshrc
+
+  # To load completions for each session, execute once:
+  $ chopchoprss completion zsh > "${fpath[1]}/_chopchoprss"
+
+  # You will need to start a new shell for this setup to take effect.
+
+Fish:
+  $ chopchoprss completion fish > ~/.config/fish/completions/chopchoprss.fish
+
+PowerShell:
+  PS> chopchoprss completion powershell | Out-String | Invoke-Expression
+
+  # To load completions for every new session, run:
+  PS> chopchoprss completion powershell > chopchoprss.ps1
+  # and source this file from your PowerShell profile.
+`,
+		DisableFlagsInUseLine: true,
+		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
+		Args:                  cobra.ExactValidArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			switch args[0] {
+			case "bash":
+				cmd.Root().GenBashCompletion(os.Stdout)
+			case "zsh":
+				cmd.Root().GenZshCompletion(os.Stdout)
+			case "fish":
+				cmd.Root().GenFishCompletion(os.Stdout, true)
+			case "powershell":
+				cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
+			}
+		},
+	}
+
 	// Add commands to root
 	rootCmd.AddCommand(createFeedCmd)
 	rootCmd.AddCommand(createEntryCmd)
 	rootCmd.AddCommand(listFeedsCmd)
+	rootCmd.AddCommand(listEntriesCmd)
+	rootCmd.AddCommand(deleteFeedCmd)
+	rootCmd.AddCommand(deleteEntryCmd)
 	rootCmd.AddCommand(serveCmd)
+	rootCmd.AddCommand(completionCmd)
 
 	// Execute
 	if err := rootCmd.Execute(); err != nil {
@@ -129,6 +218,12 @@ func main() {
 }
 
 func getConfigDir() string {
+	// Check for environment variable first
+	if envDir := os.Getenv("CHOPCHOP_CONFIG_DIR"); envDir != "" {
+		return envDir
+	}
+
+	// Otherwise use home directory
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatalf("Failed to get home directory: %v", err)
@@ -239,6 +334,68 @@ func listFeeds(cmd *cobra.Command, args []string) {
 		itemCount := len(feed.Items)
 		fmt.Printf("- %s: %s (%d items)\n", name, feed.Title, itemCount)
 	}
+}
+
+func listEntries(cmd *cobra.Command, args []string) {
+	feedName, _ := cmd.Flags().GetString("feed")
+
+	feed, exists := config.Feeds[feedName]
+	if !exists {
+		fmt.Printf("Feed '%s' does not exist\n", feedName)
+		return
+	}
+
+	if len(feed.Items) == 0 {
+		fmt.Printf("No entries in feed '%s'\n", feedName)
+		return
+	}
+
+	fmt.Printf("Entries in feed '%s':\n", feedName)
+	for i, item := range feed.Items {
+		created := item.Created.Format("2006-01-02 15:04:05")
+		hasImage := "no"
+		if item.ImageURL != "" {
+			hasImage = "yes"
+		}
+		fmt.Printf("[%d] %s (Created: %s, Has image: %s)\n", i, item.Title, created, hasImage)
+	}
+}
+
+func deleteFeed(cmd *cobra.Command, args []string) {
+	name, _ := cmd.Flags().GetString("name")
+
+	if _, exists := config.Feeds[name]; !exists {
+		fmt.Printf("Feed '%s' does not exist\n", name)
+		return
+	}
+
+	delete(config.Feeds, name)
+	saveConfig()
+	fmt.Printf("Feed '%s' deleted successfully\n", name)
+}
+
+func deleteEntry(cmd *cobra.Command, args []string) {
+	feedName, _ := cmd.Flags().GetString("feed")
+	index, _ := cmd.Flags().GetInt("index")
+
+	feed, exists := config.Feeds[feedName]
+	if !exists {
+		fmt.Printf("Feed '%s' does not exist\n", feedName)
+		return
+	}
+
+	if index < 0 || index >= len(feed.Items) {
+		fmt.Printf("Invalid entry index: %d. Valid range: 0-%d\n", index, len(feed.Items)-1)
+		return
+	}
+
+	// Remove the entry at the specified index
+	feed.Items = append(feed.Items[:index], feed.Items[index+1:]...)
+	feed.Updated = time.Now()
+	config.Feeds[feedName] = feed
+
+	saveConfig()
+	fmt.Printf("Entry at index %d deleted from feed '%s'\n", index, feedName)
 }
 
 func serve(cmd *cobra.Command, args []string) {

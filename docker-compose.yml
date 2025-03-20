@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 services:
   chopchoprss:
@@ -6,5 +6,11 @@ services:
     ports:
       - "8090:8090"
     volumes:
-      - ~/.chopchoprss:/root/.chopchoprss
+      - chopchoprss-data:/data
     restart: unless-stopped
+    # Pass a command like "list-feeds" to override the default "serve" command
+    # command: list-feeds
+
+volumes:
+  chopchoprss-data:
+    # This creates a named volume for persistent data

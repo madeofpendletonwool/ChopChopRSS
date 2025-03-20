@@ -13,10 +13,79 @@ A fast and simple CLI tool for generating and managing RSS feeds.
 
 ## Installation
 
+### Quick Install (Linux/macOS)
+
+```bash
+# Install latest version
+curl -fsSL https://raw.githubusercontent.com/madeofpendletonwool/chopchoprss/main/install.sh | bash
+```
+
+The installer will:
+- Download the appropriate binary for your OS and architecture
+- Install it to `~/.local/bin/` (ensure this is in your PATH)
+- Set up shell completion for your detected shell (bash, zsh, or fish)
+
+### Homebrew (macOS/Linux)
+
+```bash
+brew tap madeofpendletonwool/chopchoprss
+brew install chopchoprss
+```
+
 ### From Source
 
 ```bash
-git clone https://github.com/yourusername/chopchoprss.git
+git clone https://github.com/madeofpendletonwool/chopchoprss.git
+cd chopchoprss
+go build -o chopchoprss
+```
+
+### Using Docker
+
+```bash
+# Pull the latest image from GitHub Container Registry
+docker pull ghcr.io/madeofpendletonwool/chopchoprss:latest
+
+# Or build it locally
+docker build -t chopchoprss .
+
+# Run the server (default behavior)
+docker run -p 8090:8090 -v chopchoprss-data:/data ghcr.io/madeofpendletonwool/chopchoprss:latest
+
+# Create a feed
+docker run -v chopchoprss-data:/data ghcr.io/madeofpendletonwool/chopchoprss:latest create-feed -n blog -t "My Blog" -d "My awesome blog"
+
+# Add an entry
+docker run -v chopchoprss-data:/data ghcr.io/madeofpendletonwool/chopchoprss:latest create-entry -f blog -t "First Post" -c "Hello world!"
+
+# List feeds
+docker run -v chopchoprss-data:/data ghcr.io/madeofpendletonwool/chopchoprss:latest list-feeds
+
+# For convenience, you can create an alias
+alias chopchoprss-docker="docker run -v chopchoprss-data:/data ghcr.io/madeofpendletonwool/chopchoprss:latest"
+
+# Then use it like the normal CLI
+chopchoprss-docker create-entry -f blog -t "Second Post" -c "Another post!"
+```
+
+#### Using Docker Compose
+
+```bash
+# Start the server
+docker-compose up -d
+
+# Run commands
+docker-compose exec chopchoprss create-feed -n blog -t "My Blog"
+docker-compose exec chopchoprss create-entry -f blog -t "First Post" -c "Content here"
+docker-compose exec chopchoprss list-feeds
+```
+
+## Installation
+
+### From Source
+
+```bash
+git clone https://github.com/madeofpendletonwool/chopchoprss.git
 cd chopchoprss
 go build -o chopchoprss
 ```
@@ -29,6 +98,51 @@ docker build -t chopchoprss .
 
 # Run the container
 docker run -p 8090:8090 chopchoprss
+```
+
+## Shell Completion
+
+ChopChopRSS provides shell completion for Bash, Zsh, Fish, and PowerShell.
+
+### Bash
+
+```bash
+# Generate the completion script
+source <(chopchoprss completion bash)
+
+# To load completions for each session, execute once:
+# Linux:
+chopchoprss completion bash > /etc/bash_completion.d/chopchoprss
+# macOS:
+chopchoprss completion bash > $(brew --prefix)/etc/bash_completion.d/chopchoprss
+```
+
+### Zsh
+
+```bash
+# If shell completion is not already enabled, you need to enable it:
+echo "autoload -U compinit; compinit" >> ~/.zshrc
+
+# Generate and install the completion script
+chopchoprss completion zsh > "${fpath[1]}/_chopchoprss"
+
+# Start a new shell for this to take effect
+```
+
+### Fish
+
+```bash
+chopchoprss completion fish > ~/.config/fish/completions/chopchoprss.fish
+```
+
+### PowerShell
+
+```powershell
+# For current session
+chopchoprss completion powershell | Out-String | Invoke-Expression
+
+# For all sessions (add to profile)
+chopchoprss completion powershell > chopchoprss.ps1
 ```
 
 ## Usage
@@ -65,6 +179,34 @@ Options:
 ```bash
 chopchoprss list-feeds
 ```
+
+### Listing Entries in a Feed
+
+```bash
+chopchoprss list-entries -f feedname
+```
+
+Options:
+- `-f, --feed`: Feed name (required)
+
+### Deleting a Feed
+
+```bash
+chopchoprss delete-feed -n feedname
+```
+
+Options:
+- `-n, --name`: Feed name (required)
+
+### Deleting an Entry
+
+```bash
+chopchoprss delete-entry -f feedname -i 0
+```
+
+Options:
+- `-f, --feed`: Feed name (required)
+- `-i, --index`: Entry index (required, zero-based)
 
 ### Starting the Server
 
@@ -119,4 +261,4 @@ chopchoprss serve
 
 ## License
 
-MIT
+GPL3
