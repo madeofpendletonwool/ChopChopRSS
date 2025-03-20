@@ -49,7 +49,7 @@ jobs:
           version: latest
           args: release --clean
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.CHOP_TOKEN }}
           VERSION: ${{ env.VERSION }}
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
 
