@@ -1,0 +1,21 @@
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates bash
+WORKDIR /app/
+
+# Copy binary built by GoReleaser
+COPY chopchoprss /app/
+
+# Create a volume for persistent storage
+VOLUME ["/data"]
+
+# Create a wrapper script to run different commands
+RUN echo '#!/bin/bash\n\
+if [ "$1" = "serve" ] || [ -z "$1" ]; then\n\
+  exec /app/chopchoprss serve "$@"\n\
+else\n\
+  exec /app/chopchoprss "$@"\n\
+fi' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+
+EXPOSE 8090
+ENV CHOPCHOP_CONFIG_DIR=/data
+ENTRYPOINT ["/app/entrypoint.sh"]
