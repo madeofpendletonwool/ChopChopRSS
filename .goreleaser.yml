@@ -51,7 +51,7 @@ brews:
       name: homebrew-chopchoprss
     homepage: "https://github.com/{{.Env.GITHUB_REPOSITORY_OWNER}}/chopchoprss"
     description: "A fast and simple CLI tool for generating and managing RSS feeds"
-    license: "MIT"
+    license: "GPL-3.0"
     test: |
       system "#{bin}/chopchoprss --version"
     install: |
