@@ -1,3 +1,5 @@
+version: 2
+
 before:
   hooks:
     - go mod tidy
@@ -50,3 +52,14 @@ brews:
       bash_completion.install "completions/chopchoprss.bash" => "chopchoprss"
       zsh_completion.install "completions/chopchoprss.zsh" => "_chopchoprss"
       fish_completion.install "completions/chopchoprss.fish"
+
+dockers:
+  - image_templates:
+      - "ghcr.io/{{.Env.GITHUB_REPOSITORY_OWNER}}/chopchoprss:{{ .Version }}"
+      - "ghcr.io/{{.Env.GITHUB_REPOSITORY_OWNER}}/chopchoprss:latest"
+    dockerfile: Dockerfile.goreleaser
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
