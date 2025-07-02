@@ -1,4 +1,4 @@
-FROM golang:1.18-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -28,12 +28,13 @@ COPY --from=builder /app/chopchoprss .
 VOLUME ["/data"]
 
 # Create a wrapper script to run different commands
-RUN echo '#!/bin/bash\n\
-if [ "$1" = "serve" ] || [ -z "$1" ]; then\n\
-  exec /app/chopchoprss serve "$@"\n\
-else\n\
-  exec /app/chopchoprss "$@"\n\
-fi' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+RUN echo '#!/bin/bash' > /app/entrypoint.sh && \
+    echo 'if [ "$1" = "serve" ] || [ -z "$1" ]; then' >> /app/entrypoint.sh && \
+    echo '  exec /app/chopchoprss serve "$@"' >> /app/entrypoint.sh && \
+    echo 'else' >> /app/entrypoint.sh && \
+    echo '  exec /app/chopchoprss "$@"' >> /app/entrypoint.sh && \
+    echo 'fi' >> /app/entrypoint.sh && \
+    chmod +x /app/entrypoint.sh
 
 EXPOSE 8090
 

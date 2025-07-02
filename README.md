@@ -4,16 +4,30 @@
   <img src="./chopchop.png" alt="ChopChopRSS Logo" width="200">
 </p>
 
-A fast and simple CLI tool for generating and managing RSS feeds.
+A fast and simple CLI tool for generating and managing RSS feeds and podcast feeds from audio directories. This is a great little tool for deploying your own podcast feeds.
 
 ## Features
 
+### RSS Feeds
 - Create and manage multiple RSS feeds
 - Quickly add new entries to feeds
 - Support for images in feed entries
 - Customizable feed metadata
 - Serves feeds via HTTP
-- Dockerized for easy deployment
+
+### Podcast Feeds
+- **Automatic podcast generation** from audio directories
+- **Audio metadata extraction** from MP3, M4A, WAV, FLAC, and OGG files
+- **iTunes-compatible RSS** with podcast extensions
+- **Episode management** with automatic file discovery
+- **Multi-podcast support** with isolated feeds
+- **Docker-ready** for hosting multiple podcast archives
+
+### General
+- HTTP server for feed and audio file serving
+- Docker and Docker Compose support
+- Shell completion (bash, zsh, fish, powershell)
+- Persistent configuration and state
 
 ## Installation
 
@@ -151,117 +165,380 @@ chopchoprss completion powershell > chopchoprss.ps1
 
 ## Usage
 
-### Creating a Feed
+ChopChopRSS supports two main use cases: **RSS feeds** for traditional content syndication and **podcast feeds** for serving audio content with proper podcast metadata.
+
+## RSS Feeds
+
+### Creating and Managing RSS Feeds
 
 ```bash
-chopchoprss create-feed -n feedname -t "Feed Title" -d "Feed Description" -l "https://example.com" -a "Author Name" -e "author@example.com"
-```
+# Create a basic RSS feed
+chopchoprss create-feed -n blog -t "My Blog" -d "Personal thoughts and updates"
 
-Options:
-- `-n, --name`: Feed name (required, used in URL)
-- `-t, --title`: Feed title (required)
-- `-d, --description`: Feed description
-- `-l, --link`: Feed link
-- `-a, --author`: Feed author name
-- `-e, --email`: Feed author email
+# Create a comprehensive feed with all metadata
+chopchoprss create-feed \
+  -n tech-news \
+  -t "Tech News Daily" \
+  -d "Latest technology news and updates" \
+  -l "https://example.com" \
+  -a "John Doe" \
+  -e "john@example.com"
 
-### Adding an Entry to a Feed
+# Add entries to feeds
+chopchoprss create-entry \
+  -f tech-news \
+  -t "New Golang Release" \
+  -c "Go 1.21 has been released with exciting new features including improved performance and new standard library additions." \
+  -l "https://example.com/golang-release" \
+  -i "https://example.com/golang-logo.png"
 
-```bash
-chopchoprss create-entry -f feedname -t "Entry Title" -c "Entry content goes here" -l "https://example.com/entry" -i "https://example.com/image.jpg"
-```
-
-Options:
-- `-f, --feed`: Feed name (required)
-- `-t, --title`: Entry title (required)
-- `-c, --content`: Entry content (required)
-- `-l, --link`: Entry link
-- `-i, --image`: Entry image URL
-
-### Listing All Feeds
-
-```bash
+# List all feeds and their entries
 chopchoprss list-feeds
+chopchoprss list-entries -f tech-news
+
+# Delete entries or entire feeds
+chopchoprss delete-entry -f tech-news -i 0
+chopchoprss delete-feed -n old-feed
 ```
 
-### Listing Entries in a Feed
+## Podcast Feeds
+
+### Creating Podcasts from Audio Directories
+
+ChopChopRSS can automatically generate podcast feeds by scanning directories containing audio files and extracting metadata.
 
 ```bash
-chopchoprss list-entries -f feedname
+# Create a podcast from an audio directory
+chopchoprss create-podcast \
+  -n "my-podcast" \
+  -t "My Amazing Podcast" \
+  -d "Weekly discussions about technology, life, and everything in between" \
+  -a "Host Name" \
+  -e "host@example.com" \
+  -u "http://localhost:8090/my-podcast" \
+  -r "/path/to/audio/episodes" \
+  -c "Technology" \
+  -i "https://example.com/podcast-cover.jpg" \
+  --language "en" \
+  --copyright "© 2024 My Podcast"
+
+# Refresh podcast when new episodes are added
+chopchoprss refresh-podcast -n "my-podcast"
+
+# List all podcasts
+chopchoprss list-podcasts
+
+# Delete a podcast
+chopchoprss delete-podcast -n "old-podcast"
 ```
 
-Options:
-- `-f, --feed`: Feed name (required)
+#### Supported Audio Formats
+- **MP3** (.mp3) - Most common podcast format
+- **M4A** (.m4a) - Apple's AAC format
+- **WAV** (.wav) - Uncompressed audio
+- **FLAC** (.flac) - Lossless compression
+- **OGG** (.ogg) - Open source format
 
-### Deleting a Feed
+#### Automatic Metadata Extraction
+ChopChopRSS automatically extracts episode information from audio file metadata:
+- **Episode title** from ID3 title tag (or filename if missing)
+- **Episode description** from ID3 comment tag
+- **Episode number** from track number
+- **Season number** from disc number
+- **File size** for proper podcast client handling
+- **MIME type** for audio format compatibility
 
-```bash
-chopchoprss delete-feed -n feedname
-```
-
-Options:
-- `-n, --name`: Feed name (required)
-
-### Deleting an Entry
-
-```bash
-chopchoprss delete-entry -f feedname -i 0
-```
-
-Options:
-- `-f, --feed`: Feed name (required)
-- `-i, --index`: Entry index (required, zero-based)
+## Server Management
 
 ### Starting the Server
 
 ```bash
-chopchoprss serve -p 8090
+# Start server on default port (8090)
+chopchoprss serve
+
+# Start server on custom port
+chopchoprss serve -p 3000
+
+# Server will display all available feeds and podcasts:
+# Starting server on http://localhost:8090
+# Available RSS feeds:
+# - http://localhost:8090/tech-news
+# Available podcast feeds:
+# - http://localhost:8090/my-podcast
 ```
 
-Options:
-- `-p, --port`: Server port (default: 8090)
+### Accessing Content
 
-## Accessing Feeds
-
-Once the server is running, feeds are available at:
+**RSS Feeds:**
 ```
-http://localhost:8090/feedname
+http://localhost:8090/[feedname]
 ```
 
-Replace `feedname` with the name you gave to your feed.
+**Podcast Feeds:**
+```
+http://localhost:8090/[podcastname]        # RSS feed
+http://localhost:8090/[podcastname]/audio/ # Audio files
+```
+
+## Use Cases and Workflows
+
+### 1. Testing and Development
+
+**Quick RSS Feed Testing:**
+```bash
+# Create test feed and content
+chopchoprss create-feed -n test -t "Test Feed"
+chopchoprss create-entry -f test -t "Test Entry" -c "This is a test"
+
+# Start server for testing
+chopchoprss serve
+
+# Test in another terminal
+curl http://localhost:8090/test
+```
+
+**Podcast Development Testing:**
+```bash
+# Create test podcast with sample audio directory
+chopchoprss create-podcast \
+  -n test-podcast \
+  -t "Test Podcast" \
+  -d "Testing podcast functionality" \
+  -u "http://localhost:8090/test-podcast" \
+  -r "./test-audio"
+
+# Verify podcast feed
+curl http://localhost:8090/test-podcast
+
+# Test audio file serving
+curl -I http://localhost:8090/test-podcast/audio/episode1.mp3
+```
+
+### 2. Production Deployment with Docker
+
+**Single Podcast Archive:**
+```bash
+# Create docker-compose.yml
+cat > docker-compose.yml << EOF
+version: "3"
+services:
+  chopchoprss:
+    build: .
+    ports:
+      - "8090:8090"
+    volumes:
+      - chopchoprss-data:/data
+      - ./my-podcast-archive:/audio/my-podcast:ro
+    restart: unless-stopped
+
+volumes:
+  chopchoprss-data:
+EOF
+
+# Build and start
+docker-compose up -d
+
+# Create podcast configuration
+docker-compose exec chopchoprss create-podcast \
+  -n my-podcast \
+  -t "My Archived Podcast" \
+  -d "Historical episodes from my podcast" \
+  -u "http://your-domain.com:8090/my-podcast" \
+  -r "/audio/my-podcast"
+
+# Podcast available at http://your-domain.com:8090/my-podcast
+```
+
+**Multiple Podcast Archives (Automatic Setup):**
+```bash
+# Use the provided sample configuration
+cp docker-compose.podcasts.yml docker-compose.override.yml
+
+# Create startup configuration for automatic podcast setup
+cp startup.json.example startup.json
+
+# Edit startup.json to match your podcasts:
+{
+  "podcasts": [
+    {
+      "name": "show1",
+      "title": "My First Show",
+      "description": "Description of my show",
+      "author": "Host Name",
+      "email": "host@example.com",
+      "baseUrl": "http://localhost:8090/show1",
+      "audioDir": "/audio/show1",
+      "category": "Technology"
+    },
+    {
+      "name": "show2", 
+      "title": "My Second Show",
+      "description": "Another great show",
+      "baseUrl": "http://localhost:8090/show2",
+      "audioDir": "/audio/show2"
+    }
+  ]
+}
+
+# Edit docker-compose.override.yml volumes to match:
+# volumes:
+#   - ./podcasts/show1:/audio/show1:ro
+#   - ./podcasts/show2:/audio/show2:ro
+#   - ./startup.json:/data/startup.json:ro
+
+# Start services - podcasts will be created automatically!
+docker-compose up -d
+
+# All podcasts available immediately at:
+# http://localhost:8090/show1
+# http://localhost:8090/show2
+# http://localhost:8090 (homepage showing all feeds)
+```
+
+**Multiple Podcast Archives (Manual Setup):**
+```bash
+# Alternative manual approach (if you prefer docker exec commands)
+cp docker-compose.podcasts.yml docker-compose.override.yml
+
+# Edit docker-compose.override.yml volumes...
+docker-compose up -d
+
+# Configure each podcast manually
+docker-compose exec chopchoprss create-podcast \
+  -n show1 -t "Show 1" -d "Description" \
+  -u "http://localhost:8090/show1" -r "/audio/show1"
+
+docker-compose exec chopchoprss create-podcast \
+  -n show2 -t "Show 2" -d "Description" \
+  -u "http://localhost:8090/show2" -r "/audio/show2"
+```
+
+### 3. Continuous Integration / Automated Updates
+
+**Script for Regular Updates:**
+```bash
+#!/bin/bash
+# update-podcasts.sh - Run this when new episodes are added
+
+# Refresh all podcasts
+for podcast in $(chopchoprss list-podcasts | grep "^- " | cut -d: -f1 | cut -d' ' -f2); do
+    echo "Refreshing $podcast..."
+    chopchoprss refresh-podcast -n "$podcast"
+done
+
+echo "All podcasts updated!"
+```
+
+**Cron Job for Automatic Updates:**
+```bash
+# Add to crontab (crontab -e) to check for new episodes daily at 6 AM
+0 6 * * * /path/to/update-podcasts.sh
+```
+
+### 4. Behind Reverse Proxy (Production)
+
+**Nginx Configuration:**
+```nginx
+server {
+    listen 80;
+    server_name podcasts.example.com;
+
+    location / {
+        proxy_pass http://localhost:8090;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # Optional: Add caching for audio files
+    location ~* \.(mp3|m4a|wav|flac|ogg)$ {
+        proxy_pass http://localhost:8090;
+        proxy_cache_valid 200 1d;
+        add_header X-Cache-Status $upstream_cache_status;
+    }
+}
+```
 
 ## Configuration
 
-ChopChopRSS stores its configuration in the `~/.chopchoprss/config.json` file. This file is created automatically when you first run the application.
+ChopChopRSS stores its configuration in JSON format:
 
-## Docker Usage
+**Default Location:** `~/.chopchoprss/config.json`
 
-Build and run the Docker container:
+**Docker Location:** `/data/config.json` (set via `CHOPCHOP_CONFIG_DIR`)
 
-```bash
-# Build the image
-docker build -t chopchoprss .
+**Startup Configuration:** `~/.chopchoprss/startup.json` or `/data/startup.json` (Docker)
 
-# Run the container with a volume to persist data
-docker run -p 8090:8090 -v ~/.chopchoprss:/root/.chopchoprss chopchoprss
+**Sample Startup Configuration (startup.json):**
+```json
+{
+  "podcasts": [
+    {
+      "name": "my-podcast",
+      "title": "My Amazing Podcast", 
+      "description": "Weekly discussions about amazing topics",
+      "author": "Host Name",
+      "email": "host@example.com",
+      "baseUrl": "http://localhost:8090/my-podcast",
+      "audioDir": "/audio/my-podcast",
+      "category": "Technology",
+      "language": "en",
+      "imageUrl": "https://example.com/cover.jpg",
+      "explicit": false
+    }
+  ]
+}
 ```
 
-## Examples
-
-### Creating a tech news feed and adding an entry
-
-```bash
-# Create a feed
-chopchoprss create-feed -n tech -t "Tech News" -d "Latest technology news" -a "Tech Editor" -e "editor@technews.com"
-
-# Add an entry
-chopchoprss create-entry -f tech -t "New Golang Release" -c "Go 1.18 has been released with exciting new features." -l "https://example.com/golang-release" -i "https://example.com/golang-logo.png"
-
-# Start the server
-chopchoprss serve
-
-# Access the feed at http://localhost:8090/tech
+**Sample Runtime Configuration Structure (config.json):**
+```json
+{
+  "feeds": {
+    "tech-news": {
+      "title": "Tech News",
+      "description": "Latest technology news",
+      "items": [...]
+    }
+  },
+  "podcasts": {
+    "my-podcast": {
+      "title": "My Podcast",
+      "description": "Weekly discussions",
+      "audioDir": "/audio/my-podcast",
+      "baseURL": "http://localhost:8090/my-podcast",
+      "episodes": [...]
+    }
+  }
+}
 ```
+
+## Troubleshooting
+
+**Common Issues:**
+
+1. **Audio files not found:**
+   ```bash
+   # Check directory permissions and paths
+   ls -la /path/to/audio
+   chopchoprss refresh-podcast -n podcast-name
+   ```
+
+2. **Podcast feed not updating:**
+   ```bash
+   # Manually refresh the podcast
+   chopchoprss refresh-podcast -n podcast-name
+   ```
+
+3. **Docker volume issues:**
+   ```bash
+   # Check volume mounts
+   docker-compose exec chopchoprss ls -la /audio/
+   ```
+
+4. **Port conflicts:**
+   ```bash
+   # Use different port
+   chopchoprss serve -p 3000
+   ```
 
 ## License
 

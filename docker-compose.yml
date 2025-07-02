@@ -7,10 +7,17 @@ services:
       - "8090:8090"
     volumes:
       - chopchoprss-data:/data
+      # Mount audio directories for podcasts
+      # Example: uncomment and modify these to point to your podcast directories
+      # - ./podcasts/my-podcast1:/audio/my-podcast1:ro
+      # - ./podcasts/my-podcast2:/audio/my-podcast2:ro
     restart: unless-stopped
+    environment:
+      # Configuration is stored in /data (chopchoprss-data volume)
+      CHOPCHOP_CONFIG_DIR: /data
     # Pass a command like "list-feeds" to override the default "serve" command
     # command: list-feeds
 
 volumes:
   chopchoprss-data:
-    # This creates a named volume for persistent data
+    # This creates a named volume for persistent data and configuration
