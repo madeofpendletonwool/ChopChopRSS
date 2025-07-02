@@ -1,0 +1,40 @@
+{
+  "podcasts": [
+    {
+      "name": "my-show",
+      "title": "My Amazing Show",
+      "description": "A podcast about amazing things",
+      "author": "John Doe",
+      "email": "john@example.com",
+      "baseUrl": "http://localhost:8090/my-show",
+      "audioDir": "/audio/my-show",
+      "categories": ["Technology"],
+      "language": "en",
+      "imageUrl": "https://example.com/my-show-cover.jpg"
+    },
+    {
+      "name": "tech-talk", 
+      "title": "Tech Talk Weekly",
+      "description": "Weekly discussions about technology trends",
+      "author": "Jane Smith",
+      "email": "jane@example.com", 
+      "baseUrl": "http://localhost:8090/tech-talk",
+      "audioDir": "/audio/tech-talk",
+      "categories": ["Technology"],
+      "language": "en",
+      "explicit": false
+    },
+    {
+      "name": "old-radio",
+      "title": "Vintage Radio Archive", 
+      "description": "Classic radio shows from the golden age",
+      "author": "Radio Archivist",
+      "email": "archive@example.com",
+      "baseUrl": "http://localhost:8090/old-radio", 
+      "audioDir": "/audio/old-radio",
+      "categories": ["Arts", "History"],
+      "language": "en",
+      "copyright": "Public Domain Archive"
+    }
+  ]
+}

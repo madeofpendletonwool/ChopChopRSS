@@ -7,12 +7,14 @@ RUN apk add --no-cache git
 
 # Copy go.mod and go.sum
 COPY go.mod go.sum ./
+COPY chopchop.png ./
 
 # Download dependencies explicitly
 RUN go mod download && go mod verify
 
 # Copy the rest of the source code
 COPY . .
+COPY chopchop.png /chopchop.png
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o chopchoprss
@@ -23,6 +25,7 @@ RUN apk --no-cache add ca-certificates bash
 
 WORKDIR /app/
 COPY --from=builder /app/chopchoprss .
+COPY --from=builder /chopchop.png /app/chopchop.png
 
 # Create a volume for persistent storage
 VOLUME ["/data"]

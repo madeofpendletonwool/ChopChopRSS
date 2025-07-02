@@ -4,8 +4,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -56,7 +58,7 @@ type Podcast struct {
 	Author      string    `json:"author"`
 	Email       string    `json:"email"`
 	ImageURL    string    `json:"imageUrl,omitempty"`
-	Category    string    `json:"category,omitempty"`
+	Categories  []string  `json:"categories,omitempty"`
 	Language    string    `json:"language,omitempty"`
 	Copyright   string    `json:"copyright,omitempty"`
 	Explicit    bool      `json:"explicit,omitempty"`
@@ -96,7 +98,7 @@ type StartupPodcast struct {
 	Author      string `json:"author,omitempty"`
 	Email       string `json:"email,omitempty"`
 	ImageURL    string `json:"imageUrl,omitempty"`
-	Category    string `json:"category,omitempty"`
+	Categories  []string `json:"categories,omitempty"`
 	Language    string `json:"language,omitempty"`
 	Copyright   string `json:"copyright,omitempty"`
 	Explicit    bool   `json:"explicit,omitempty"`
@@ -277,7 +279,7 @@ PowerShell:
 	createPodcastCmd.Flags().StringP("author", "a", "", "Podcast author/host")
 	createPodcastCmd.Flags().StringP("email", "e", "", "Podcast author email")
 	createPodcastCmd.Flags().StringP("image", "i", "", "Podcast cover image URL")
-	createPodcastCmd.Flags().StringP("category", "c", "", "Podcast category (e.g., Technology, Comedy)")
+	createPodcastCmd.Flags().StringSliceP("categories", "c", []string{}, "Podcast categories (e.g., Technology,Comedy)")
 	createPodcastCmd.Flags().StringP("language", "g", "en", "Podcast language (default: en)")
 	createPodcastCmd.Flags().String("copyright", "", "Copyright information")
 	createPodcastCmd.Flags().BoolP("explicit", "x", false, "Mark podcast as explicit content")
@@ -438,7 +440,7 @@ func autoSetupPodcasts(configDir string) {
 			Author:      podcastConfig.Author,
 			Email:       podcastConfig.Email,
 			ImageURL:    podcastConfig.ImageURL,
-			Category:    podcastConfig.Category,
+			Categories:  podcastConfig.Categories,
 			Language:    podcastConfig.Language,
 			Copyright:   podcastConfig.Copyright,
 			Explicit:    podcastConfig.Explicit,
@@ -639,11 +641,15 @@ func scanAudioFiles(audioDir, baseURL string) ([]Episode, error) {
 
 		// Get file info
 		relPath, _ := filepath.Rel(audioDir, path)
-		audioURL := strings.TrimSuffix(baseURL, "/") + "/audio/" + strings.ReplaceAll(relPath, "\\", "/")
+		// URL-encode the path to handle special characters like & in filenames
+		encodedPath := url.PathEscape(strings.ReplaceAll(relPath, "\\", "/"))
+		// Manually encode & for XML compatibility
+		encodedPath = strings.ReplaceAll(encodedPath, "&", "%26")
+		audioURL := strings.TrimSuffix(baseURL, "/") + "/audio/" + encodedPath
 
 		// Create episode
 		episode := Episode{
-			Title:     getStringOrDefault(m, "title", filepath.Base(path)),
+			Title:     html.EscapeString(getStringOrDefault(m, "title", filepath.Base(path))),
 			AudioURL:  audioURL,
 			FilePath:  path,
 			FileSize:  info.Size(),
@@ -652,9 +658,9 @@ func scanAudioFiles(audioDir, baseURL string) ([]Episode, error) {
 		}
 
 		if m != nil {
-			episode.Description = getStringOrDefault(m, "comment", "")
+			episode.Description = html.EscapeString(getStringOrDefault(m, "comment", ""))
 			if album := m.Album(); album != "" {
-				episode.Description = album + " - " + episode.Description
+				episode.Description = html.EscapeString(album + " - " + episode.Description)
 			}
 
 			// Try to extract episode/season numbers
@@ -666,6 +672,20 @@ func scanAudioFiles(audioDir, baseURL string) ([]Episode, error) {
 			// Try to extract season from album or genre
 			if disc, _ := m.Disc(); disc != 0 {
 				episode.Season = disc
+			}
+
+			// Extract artwork if available
+			if picture := m.Picture(); picture != nil {
+				// Create artwork URL based on the audio file path
+				artworkPath := strings.TrimSuffix(relPath, filepath.Ext(relPath)) + "_artwork.jpg"
+				encodedArtworkPath := url.PathEscape(strings.ReplaceAll(artworkPath, "\\", "/"))
+				// Manually encode & for XML compatibility
+				encodedArtworkPath = strings.ReplaceAll(encodedArtworkPath, "&", "%26")
+				artworkURL := strings.TrimSuffix(baseURL, "/") + "/artwork/" + encodedArtworkPath
+				episode.ImageURL = artworkURL
+				
+				// Save artwork to file system for serving
+				saveEpisodeArtwork(path, picture.Data, artworkPath, audioDir)
 			}
 		}
 
@@ -713,6 +733,29 @@ func getStringOrDefault(m tag.Metadata, field, defaultValue string) string {
 	return defaultValue
 }
 
+// saveEpisodeArtwork saves artwork data to a file for serving
+func saveEpisodeArtwork(audioFilePath string, artworkData []byte, artworkPath, audioDir string) {
+	if len(artworkData) == 0 {
+		return
+	}
+
+	// Create artwork directory if it doesn't exist
+	artworkDir := filepath.Join(audioDir, ".artwork")
+	if err := os.MkdirAll(artworkDir, 0755); err != nil {
+		log.Printf("Failed to create artwork directory: %v", err)
+		return
+	}
+
+	// Save artwork file
+	artworkFilePath := filepath.Join(artworkDir, filepath.Base(artworkPath))
+	if err := os.WriteFile(artworkFilePath, artworkData, 0644); err != nil {
+		log.Printf("Failed to save artwork for %s: %v", audioFilePath, err)
+		return
+	}
+
+	log.Printf("Saved artwork for %s", filepath.Base(audioFilePath))
+}
+
 // createPodcast creates a new podcast feed from a directory of audio files
 func createPodcast(cmd *cobra.Command, args []string) {
 	name, _ := cmd.Flags().GetString("name")
@@ -722,7 +765,7 @@ func createPodcast(cmd *cobra.Command, args []string) {
 	author, _ := cmd.Flags().GetString("author")
 	email, _ := cmd.Flags().GetString("email")
 	imageURL, _ := cmd.Flags().GetString("image")
-	category, _ := cmd.Flags().GetString("category")
+	categories, _ := cmd.Flags().GetStringSlice("categories")
 	language, _ := cmd.Flags().GetString("language")
 	copyright, _ := cmd.Flags().GetString("copyright")
 	explicit, _ := cmd.Flags().GetBool("explicit")
@@ -756,7 +799,7 @@ func createPodcast(cmd *cobra.Command, args []string) {
 		Author:      author,
 		Email:       email,
 		ImageURL:    imageURL,
-		Category:    category,
+		Categories:  categories,
 		Language:    language,
 		Copyright:   copyright,
 		Explicit:    explicit,
@@ -845,9 +888,14 @@ func serve(cmd *cobra.Command, args []string) {
 	}
 
 	// Handle podcast feeds
-	for name := range config.Podcasts {
+	for name, podcast := range config.Podcasts {
 		podcastName := name // Capture for closure
-		r.HandleFunc("/"+podcastName, func(w http.ResponseWriter, r *http.Request) {
+		// Extract path from baseURL (e.g., "http://localhost:8090/joystiq" -> "/joystiq")
+		urlPath := strings.TrimPrefix(podcast.BaseURL, podcast.BaseURL[:strings.LastIndex(podcast.BaseURL, "/")])
+		if urlPath == "" {
+			urlPath = "/" + podcastName // Fallback to name if can't parse URL
+		}
+		r.HandleFunc(urlPath, func(w http.ResponseWriter, r *http.Request) {
 			servePodcastFeed(w, podcastName)
 		})
 	}
@@ -856,8 +904,21 @@ func serve(cmd *cobra.Command, args []string) {
 	for name, podcast := range config.Podcasts {
 		podcastName := name // Capture for closure
 		audioDir := podcast.AudioDir
-		r.PathPrefix("/" + podcastName + "/audio/").Handler(
-			http.StripPrefix("/"+podcastName+"/audio/", http.FileServer(http.Dir(audioDir))),
+		// Extract path from baseURL for consistency
+		urlPath := strings.TrimPrefix(podcast.BaseURL, podcast.BaseURL[:strings.LastIndex(podcast.BaseURL, "/")])
+		if urlPath == "" {
+			urlPath = "/" + podcastName // Fallback to name if can't parse URL
+		}
+		audioPath := urlPath + "/audio/"
+		r.PathPrefix(audioPath).Handler(
+			http.StripPrefix(audioPath, http.FileServer(http.Dir(audioDir))),
+		)
+
+		// Serve artwork files
+		artworkPath := urlPath + "/artwork/"
+		artworkDir := filepath.Join(audioDir, ".artwork")
+		r.PathPrefix(artworkPath).Handler(
+			http.StripPrefix(artworkPath, http.FileServer(http.Dir(artworkDir))),
 		)
 	}
 
@@ -944,13 +1005,13 @@ func servePodcastFeed(w http.ResponseWriter, podcastName string) {
 
 	// Convert our podcast structure to gorilla/feeds format
 	f := &feeds.Feed{
-		Title:       podcast.Title,
+		Title:       html.EscapeString(podcast.Title),
 		Link:        &feeds.Link{Href: podcast.Link},
-		Description: podcast.Description,
-		Author:      &feeds.Author{Name: podcast.Author, Email: podcast.Email},
+		Description: html.EscapeString(podcast.Description),
+		Author:      &feeds.Author{Name: html.EscapeString(podcast.Author), Email: podcast.Email},
 		Created:     podcast.Created,
 		Updated:     podcast.Updated,
-		Copyright:   podcast.Copyright,
+		Copyright:   html.EscapeString(podcast.Copyright),
 	}
 
 	// Add podcast-specific image
@@ -962,12 +1023,20 @@ func servePodcastFeed(w http.ResponseWriter, podcastName string) {
 		}
 	}
 
-	// Convert episodes to feed items
-	f.Items = make([]*feeds.Item, len(podcast.Episodes))
-	for i, episode := range podcast.Episodes {
+	// Convert episodes to feed items (filter out invalid episodes)
+	var validItems []*feeds.Item
+	for _, episode := range podcast.Episodes {
+		// Skip episodes with missing required data
+		if episode.Title == "" || episode.AudioURL == "" || episode.MimeType == "" {
+			log.Printf("Skipping episode with missing data: title='%s', audioURL='%s', mimeType='%s'", 
+				episode.Title, episode.AudioURL, episode.MimeType)
+			continue
+		}
+
 		feedItem := &feeds.Item{
 			Title:       episode.Title,
 			Description: episode.Description,
+			Link:        &feeds.Link{Href: episode.AudioURL}, // Use audio URL as link
 			Created:     episode.Published,
 			Updated:     episode.Published,
 		}
@@ -999,8 +1068,11 @@ func servePodcastFeed(w http.ResponseWriter, podcastName string) {
 			feedItem.Description = fmt.Sprintf("[%s] %s", episodeInfo, feedItem.Description)
 		}
 
-		f.Items[i] = feedItem
+		validItems = append(validItems, feedItem)
 	}
+
+	// Set the valid items
+	f.Items = validItems
 
 	// Generate RSS with podcast extensions
 	rss, err := f.ToRss()
@@ -1011,6 +1083,9 @@ func servePodcastFeed(w http.ResponseWriter, podcastName string) {
 
 	// Add podcast-specific XML namespaces and elements
 	rss = addPodcastExtensions(rss, podcast)
+	
+	// Add episode artwork to RSS items
+	rss = addEpisodeArtwork(rss, podcast.Episodes)
 
 	w.Header().Set("Content-Type", "application/xml")
 	w.Write([]byte(rss))
@@ -1019,8 +1094,8 @@ func servePodcastFeed(w http.ResponseWriter, podcastName string) {
 // addPodcastExtensions adds iTunes and other podcast-specific XML elements
 func addPodcastExtensions(rss string, podcast Podcast) string {
 	// Add iTunes namespace
-	rss = strings.Replace(rss, "<rss version=\"2.0\">",
-		`<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">`, 1)
+	rss = strings.Replace(rss, `<rss version="2.0"`,
+		`<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"`, 1)
 
 	// Find the channel opening tag and add iTunes elements after it
 	channelStart := strings.Index(rss, "<channel>")
@@ -1032,9 +1107,9 @@ func addPodcastExtensions(rss string, podcast Podcast) string {
 
 	var itunesElements strings.Builder
 
-	// Add iTunes category
-	if podcast.Category != "" {
-		itunesElements.WriteString(fmt.Sprintf("\n    <itunes:category text=\"%s\" />", podcast.Category))
+	// Add iTunes categories
+	for _, category := range podcast.Categories {
+		itunesElements.WriteString(fmt.Sprintf("\n    <itunes:category text=\"%s\" />", html.EscapeString(category)))
 	}
 
 	// Add iTunes explicit tag
@@ -1046,35 +1121,58 @@ func addPodcastExtensions(rss string, podcast Podcast) string {
 
 	// Add iTunes author
 	if podcast.Author != "" {
-		itunesElements.WriteString(fmt.Sprintf("\n    <itunes:author>%s</itunes:author>", podcast.Author))
+		itunesElements.WriteString(fmt.Sprintf("\n    <itunes:author>%s</itunes:author>", html.EscapeString(podcast.Author)))
 	}
 
 	// Add iTunes owner
 	if podcast.Email != "" || podcast.Author != "" {
 		itunesElements.WriteString("\n    <itunes:owner>")
 		if podcast.Author != "" {
-			itunesElements.WriteString(fmt.Sprintf("\n      <itunes:name>%s</itunes:name>", podcast.Author))
+			itunesElements.WriteString(fmt.Sprintf("\n      <itunes:name>%s</itunes:name>", html.EscapeString(podcast.Author)))
 		}
 		if podcast.Email != "" {
-			itunesElements.WriteString(fmt.Sprintf("\n      <itunes:email>%s</itunes:email>", podcast.Email))
+			itunesElements.WriteString(fmt.Sprintf("\n      <itunes:email>%s</itunes:email>", html.EscapeString(podcast.Email)))
 		}
 		itunesElements.WriteString("\n    </itunes:owner>")
 	}
 
 	// Add iTunes image
 	if podcast.ImageURL != "" {
-		itunesElements.WriteString(fmt.Sprintf("\n    <itunes:image href=\"%s\" />", podcast.ImageURL))
+		itunesElements.WriteString(fmt.Sprintf("\n    <itunes:image href=\"%s\" />", html.EscapeString(podcast.ImageURL)))
 	}
 
 	// Add language
 	if podcast.Language != "" {
-		itunesElements.WriteString(fmt.Sprintf("\n    <language>%s</language>", podcast.Language))
+		itunesElements.WriteString(fmt.Sprintf("\n    <language>%s</language>", html.EscapeString(podcast.Language)))
 	}
 
 	// Insert the iTunes elements
 	result := rss[:insertPos] + itunesElements.String() + rss[insertPos:]
 
 	return result
+}
+
+// addEpisodeArtwork adds iTunes episode images to RSS items
+func addEpisodeArtwork(rss string, episodes []Episode) string {
+	lines := strings.Split(rss, "\n")
+	result := make([]string, 0, len(lines))
+	episodeIndex := 0
+	
+	for _, line := range lines {
+		result = append(result, line)
+		
+		// Look for </item> tags and add iTunes image before them
+		if strings.Contains(line, "</item>") && episodeIndex < len(episodes) {
+			if episodes[episodeIndex].ImageURL != "" {
+				// Add iTunes episode image with proper indentation
+				itunesImage := fmt.Sprintf("    <itunes:image href=\"%s\" />", episodes[episodeIndex].ImageURL)
+				result = append(result[:len(result)-1], itunesImage, line)
+			}
+			episodeIndex++
+		}
+	}
+	
+	return strings.Join(result, "\n")
 }
 
 // serveHomepage serves a nice HTML homepage with logo and feed information
@@ -1279,11 +1377,16 @@ func serveHomepage(w http.ResponseWriter, r *http.Request) {
                     </h3>`
 			for name, podcast := range config.Podcasts {
 				episodeCount := len(podcast.Episodes)
+				// Extract path from baseURL for consistency
+				urlPath := strings.TrimPrefix(podcast.BaseURL, podcast.BaseURL[:strings.LastIndex(podcast.BaseURL, "/")])
+				if urlPath == "" {
+					urlPath = "/" + name // Fallback to name if can't parse URL
+				}
 				html += fmt.Sprintf(`
                     <div class="feed-item">
-                        <a href="/%s" class="feed-link">%s</a>
+                        <a href="%s" class="feed-link">%s</a>
                         <div class="feed-description">%s • %d episodes</div>
-                    </div>`, name, podcast.Title, podcast.Description, episodeCount)
+                    </div>`, urlPath, podcast.Title, podcast.Description, episodeCount)
 			}
 			html += `
                 </div>`

@@ -1,0 +1,47 @@
+# Sample Docker Compose configuration for podcast hosting
+# Copy this to docker-compose.override.yml and modify for your needs
+
+version: "3"
+
+services:
+  chopchoprss:
+    volumes:
+      # Mount your podcast audio directories
+      # Format: - /host/path/to/audio:/audio/podcast-name:ro
+      - ./podcasts/my-show:/audio/my-show
+      - ./podcasts/tech-talk:/audio/tech-talk
+
+      # You can also mount individual podcast directories
+      # - /home/user/podcasts/comedy-show:/audio/comedy-show:ro
+      # - /var/media/archive/old-radio:/audio/old-radio:ro
+
+      # Mount startup configuration for auto-creating podcasts
+      # Copy startup.json.example to startup.json and customize
+      - ./startup.json:/data/startup.json:ro
+
+    environment:
+      # Base URL should match your domain/IP
+      # This will be used to construct audio file URLs in the RSS feed
+      PODCAST_BASE_URL: "http://localhost:8090"
+# AUTOMATIC SETUP (Recommended):
+# 1. Copy startup.json.example to startup.json
+# 2. Edit startup.json to match your podcast directories and metadata
+# 3. Run: docker-compose up -d
+# 4. Podcasts will be automatically created on startup!
+#
+# MANUAL SETUP (Alternative):
+# 1. Create podcast from mounted directory:
+#    docker-compose exec chopchoprss create-podcast \
+#      -n my-show -t "My Amazing Show" \
+#      -d "A podcast about amazing things" \
+#      -a "John Doe" -e "john@example.com" \
+#      -u "http://localhost:8090/my-show" \
+#      -r "/audio/my-show"
+#
+# MAINTENANCE:
+# - Refresh podcast when new episodes are added:
+#   docker-compose exec chopchoprss refresh-podcast -n my-show
+# - List all podcasts:
+#   docker-compose exec chopchoprss list-podcasts
+# - View homepage with all feeds:
+#   http://localhost:8090

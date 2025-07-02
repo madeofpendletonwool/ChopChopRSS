@@ -368,7 +368,7 @@ cp startup.json.example startup.json
       "email": "host@example.com",
       "baseUrl": "http://localhost:8090/show1",
       "audioDir": "/audio/show1",
-      "category": "Technology"
+      "categories": ["Technology"]
     },
     {
       "name": "show2", 
@@ -480,7 +480,7 @@ ChopChopRSS stores its configuration in JSON format:
       "email": "host@example.com",
       "baseUrl": "http://localhost:8090/my-podcast",
       "audioDir": "/audio/my-podcast",
-      "category": "Technology",
+      "categories": ["Technology"],
       "language": "en",
       "imageUrl": "https://example.com/cover.jpg",
       "explicit": false

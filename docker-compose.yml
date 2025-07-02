@@ -9,8 +9,8 @@ services:
       - chopchoprss-data:/data
       # Mount audio directories for podcasts
       # Example: uncomment and modify these to point to your podcast directories
-      # - ./podcasts/my-podcast1:/audio/my-podcast1:ro
-      # - ./podcasts/my-podcast2:/audio/my-podcast2:ro
+      # - ./podcasts/my-podcast1:/audio/my-podcast1
+      # - ./podcasts/my-podcast2:/audio/my-podcast2
     restart: unless-stopped
     environment:
       # Configuration is stored in /data (chopchoprss-data volume)
