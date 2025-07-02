@@ -11,6 +11,8 @@ services:
       # Example: uncomment and modify these to point to your podcast directories
       # - ./podcasts/my-podcast1:/audio/my-podcast1
       # - ./podcasts/my-podcast2:/audio/my-podcast2
+      # Optional Podcast Images directory
+      # - ./podcast-images:/podcast-images
     restart: unless-stopped
     environment:
       # Configuration is stored in /data (chopchoprss-data volume)

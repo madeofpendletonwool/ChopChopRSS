@@ -922,6 +922,15 @@ func serve(cmd *cobra.Command, args []string) {
 		)
 	}
 
+	// Serve podcast images from /podcast-images directory
+	podcastImagesDir := "/podcast-images"
+	if _, err := os.Stat(podcastImagesDir); err == nil {
+		r.PathPrefix("/podcast-images/").Handler(
+			http.StripPrefix("/podcast-images/", http.FileServer(http.Dir(podcastImagesDir))),
+		)
+		log.Printf("Serving podcast images from %s at /podcast-images/", podcastImagesDir)
+	}
+
 	fmt.Printf("Starting server on http://localhost:%s\n", port)
 
 	if len(config.Feeds) > 0 {
